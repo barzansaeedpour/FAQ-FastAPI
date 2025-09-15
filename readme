@@ -1,0 +1,153 @@
+UOK FAQ Chatbot
+
+یک چت‌بات FAQ فارسی برای دانشگاه که به دانشجویان کمک می‌کند سوالات متداول درباره سامانه گلستان، امور آموزشی، مالی، ایمیل و … را پاسخ دهد. چت‌بات بر اساس intents و examples کار می‌کند و اگر پاسخی پیدا نشود، از فایل‌های PDF یا مدل هوش مصنوعی Google Gemini برای تولید پاسخ استفاده می‌کند.
+
+ویژگی‌ها
+
+پشتیبانی کامل از فارسی با normalize کردن حروف و فاصله‌ها.
+
+جستجوی فازی (fuzzy match) برای پیدا کردن نزدیک‌ترین intent به سوال کاربر.
+
+پشتیبانی از چند پاسخ برای هر intent و انتخاب پاسخ به صورت تصادفی.
+
+قابلیت fallback با پردازش PDF و مدل هوش مصنوعی.
+
+قابلیت debug برای بررسی matching و intent انتخاب شده.
+
+ساختار قابل گسترش با فایل‌های YAML برای intents و domain.
+
+نصب و راه‌اندازی
+پیش‌نیازها
+
+Python 3.10+
+
+FastAPI
+
+pyyaml
+
+google-genai (برای fallback با Gemini)
+
+uvicorn (برای اجرای سرور)
+
+نصب پکیج‌ها
+pip install fastapi pyyaml google-genai uvicorn
+
+اجرای سرور
+uvicorn main:app --reload
+
+
+سرویس روی http://127.0.0.1:8000 در دسترس خواهد بود.
+
+endpoint اصلی: /Response/{query}
+مثال:
+
+http://127.0.0.1:8000/Response/چگونه می‌توانم ایمیل دانشگاهی‌ام را ریست کنم
+
+ساختار پروژه
+project/
+│
+├─ main.py                  # نقطه شروع FastAPI
+├─ intent_handler.py        # مدیریت intents و fuzzy matching
+├─ get_response.py          # fallback و پردازش PDF با Gemini
+├─ intent_keywords.py       # تعریف کلیدواژه‌های هر فایل intents
+├─ domain.yml               # پاسخ‌های intents
+├─ intents/                 # پوشه حاوی فایل‌های intents (YAML)
+│   ├─ education.yml
+│   ├─ finance.yml
+│   └─ ...
+├─ files/                   # فایل‌های PDF برای fallback
+└─ filedescription.py       # توضیحات فایل‌ها برای مدیریت fallback
+
+ساختار intents
+
+هر فایل YAML می‌تواند شامل چند intent باشد.
+
+مثال فایل intent:
+
+version: "3.1"
+nlu:
+- intent: Email_password_recovery
+  examples: |
+    - چگونه می‌توانم ایمیل دانشگاهی‌ام را ریست کنم؟
+    - رمز ایمیل دانشگاه رو چطوری عوض کنم؟
+- intent: entekhab_vahed_confirmation
+  examples: |
+    - چطور بفهمیم که انتخاب واحد تایید شده یا نه؟
+
+ساختار domain.yml
+
+هر intent می‌تواند چند پاسخ داشته باشد:
+
+responses:
+  utter_Email_password_recovery:
+    - text: "شما میتوانید با استفاده از فراموشی رمز یک رمز جدید برای خود فراهم کنید."
+    - text: "در قسمت تنظیمات ایمیل امکان ریست فراهمه"
+    - text: "میتونید از قسمت تنظیمات ایمیل، اطلاعات رو ریست کنید"
+
+نحوه کارکرد
+
+match بر اساس کلیدواژه‌ها (intent_keywords) روی متن سوال.
+
+fuzzy match بین سوال کاربر و examples هر intent.
+
+اگر intent پیدا شد، یکی از پاسخ‌های موجود در domain.yml به صورت تصادفی بازگردانده می‌شود.
+
+اگر match موفق نبود، fallback با بررسی PDF‌ها و مدل Gemini انجام می‌شود.
+
+Endpoint‌ها
+دریافت پاسخ
+GET /Response/{query}
+
+
+type: intent یا fallback
+
+answer: متن پاسخ یا لیست پاسخ‌ها
+
+Debug intents
+GET /debug/intents
+
+
+نمایش summary از intents لود شده و نمونه examples
+
+Debug match
+GET /debug/match?query=سوال&cutoff=0.5
+
+
+بررسی جزئیات fuzzy match
+
+نمایش matched_files، search_space_count، best_overall
+
+نکات مهم
+
+برای بهبود دقت fuzzy match، توصیه می‌شود همه examples با نگارش صحیح و کامل فارسی وارد شوند.
+
+تابع normalize_fa باعث می‌شود اختلافات جزئی مانند ی/ي، ك/ک و فاصله اضافی حذف شود.
+
+می‌توانید پاسخ‌ها را در domain.yml متنوع وارد کنید تا bot پاسخ‌های متفاوت بدهد.
+
+PDF‌ها باید در فولدر files/ قرار بگیرند و fallback از آن‌ها استفاده کند.
+
+مثال استفاده
+import requests
+
+query = "چگونه می‌توانم ایمیل دانشگاهی‌ام را ریست کنم"
+res = requests.get(f"http://127.0.0.1:8000/Response/{query}")
+print(res.json())
+
+
+خروجی:
+
+{
+  "type": "intent",
+  "answer": "در قسمت تنظیمات ایمیل امکان ریست فراهمه"
+}
+
+توسعه و گسترش
+
+افزودن intents جدید در پوشه intents/
+
+افزودن کلیدواژه‌های جدید در intent_keywords.py
+
+افزودن پاسخ‌های جدید در domain.yml
+
+بهبود fallback با اضافه کردن PDF جدید
